@@ -1,0 +1,157 @@
+{
+  "fields": [
+    {
+      "key": "punctuality",
+      "label": "Punctuality"
+    },
+    {
+      "key": "subjectKnowledge",
+      "label": "Subject knowledge"
+    },
+    {
+      "key": "communicationClarity",
+      "label": "Communication clarity"
+    },
+    {
+      "key": "studentEngagement",
+      "label": "Student engagement"
+    },
+    {
+      "key": "lessonPreparation",
+      "label": "Lesson preparation"
+    },
+    {
+      "key": "classroomManagement",
+      "label": "Classroom management"
+    },
+    {
+      "key": "useOfMaterials",
+      "label": "Use of materials"
+    },
+    {
+      "key": "pacing",
+      "label": "Pacing"
+    },
+    {
+      "key": "responsiveness",
+      "label": "Responsiveness to questions"
+    },
+    {
+      "key": "professionalism",
+      "label": "Overall professionalism"
+    },
+    {
+      "key": "homeworkFeedback",
+      "label": "Homework feedback"
+    },
+    {
+      "key": "goodness",
+      "label": "goodness"
+    }
+  ],
+  "teachers": [
+    {
+      "id": 1,
+      "name": "Sarah Johnson"
+    },
+    {
+      "id": 2,
+      "name": "Michael Chen"
+    },
+    {
+      "id": 3,
+      "name": "Aisha Rahman",
+      "removed": true
+    },
+    {
+      "id": 4,
+      "name": "David Okafor"
+    },
+    {
+      "id": 5,
+      "name": "Elena Petrova"
+    },
+    {
+      "id": 6,
+      "name": "James Wilson"
+    },
+    {
+      "id": 7,
+      "name": "Fatima Al-Sayed"
+    },
+    {
+      "id": 8,
+      "name": "Carlos Mendez"
+    },
+    {
+      "id": 9,
+      "name": "Priya Sharma"
+    },
+    {
+      "id": 10,
+      "name": "Thomas Becker"
+    },
+    {
+      "id": 11,
+      "name": "yasser",
+      "removed": false
+    }
+  ],
+  "sessions": [
+    {
+      "id": "15f297b1-3cd5-4ed8-a29f-4c786b984c8b",
+      "createdAt": "2026-06-27T14:33:46.549Z",
+      "studentEngagement": 9,
+      "pacing": 8,
+      "punctuality": 9,
+      "sessionTime": "10:00",
+      "responsiveness": 9,
+      "sessionDate": "2026-06-27",
+      "subject": "Algebra",
+      "communicationClarity": 8,
+      "subjectKnowledge": 10,
+      "classroomManagement": 8,
+      "professionalism": 10,
+      "teacherName": "Sarah Johnson",
+      "lessonPreparation": 9,
+      "useOfMaterials": 7
+    },
+    {
+      "id": "a52149ba-c699-4125-97e0-f67abe4f6f06",
+      "createdAt": "2026-06-27T14:36:49.852Z",
+      "teacherName": "Michael Chen",
+      "sessionDate": "2026-06-22",
+      "sessionTime": "20:39",
+      "subject": "math ",
+      "punctuality": "7",
+      "subjectKnowledge": "6",
+      "communicationClarity": "2",
+      "studentEngagement": "4",
+      "lessonPreparation": "7",
+      "classroomManagement": "5",
+      "useOfMaterials": "10",
+      "pacing": "3",
+      "responsiveness": "6",
+      "professionalism": "6"
+    },
+    {
+      "id": "89b4aecf-b3b7-4892-b62a-4fd68de5b3e0",
+      "createdAt": "2026-06-27T14:43:10.465Z",
+      "studentEngagement": 10,
+      "responsiveness": 10,
+      "pacing": 9,
+      "punctuality": 9,
+      "sessionTime": "09:00",
+      "homeworkFeedback": 8,
+      "sessionDate": "2026-06-27",
+      "subject": "Physics",
+      "communicationClarity": 10,
+      "subjectKnowledge": 9,
+      "classroomManagement": 9,
+      "professionalism": 9,
+      "teacherName": "Aisha Rahman",
+      "lessonPreparation": 9,
+      "useOfMaterials": 9
+    }
+  ]
+}
