@@ -18,7 +18,7 @@ export function createApp() {
   const app = express()
 
   // Allow the Vite dev frontend (different origin) to call the API.
-
+  app.use(cors({ origin: '*' }));
   app.use(express.json())
 
   // Health check.
