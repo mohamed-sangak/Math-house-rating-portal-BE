@@ -16,6 +16,7 @@ import adminRouter from './routes/admin.js'
  */
 export function createApp() {
   const app = express()
+  app.disable('x-powered-by')
 
   // Allow the Vite dev frontend (different origin) to call the API.
   app.use(cors({ origin: '*' }));
@@ -44,6 +45,10 @@ export function createApp() {
   // Error handler — keep internal details out of client responses.
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, _next) => {
+    // Malformed JSON body from express.json() — the client's fault, not ours.
+    if (err?.type === 'entity.parse.failed') {
+      return res.status(400).json({ error: 'Invalid request body.' })
+    }
     console.error(err)
     res.status(err.status || 500).json({ error: 'Something went wrong on the server.' })
   })

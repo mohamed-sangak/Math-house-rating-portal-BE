@@ -1,11 +1,12 @@
 import { Router } from 'express'
 import { Subject } from '../models/Subject.js'
-import { requireAdmin } from '../lib/auth.js'
+import { requireAdmin, requireReviewerOrAdmin } from '../lib/auth.js'
 
 const router = Router()
 
 // GET /api/subjects — list subjects for the employee form dropdown.
-router.get('/', async (_req, res, next) => {
+// Read by both signed-in reviewers (the form) and admins (form settings).
+router.get('/', requireReviewerOrAdmin, async (_req, res, next) => {
   try {
     const subjects = await Subject.find().sort({ name: 1 }).lean({ virtuals: true })
     res.json({
@@ -32,7 +33,7 @@ router.post('/', requireAdmin, async (req, res, next) => {
     }
 
     const subject = await Subject.create({ name })
-    res.status(201).json(subject.toJSON())
+    res.status(201).json(subject)
   } catch (err) {
     if (err?.code === 11000) {
       return res.status(409).json({ error: 'That subject already exists' })
@@ -48,7 +49,7 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
     if (!subject) {
       return res.status(404).json({ error: 'Subject not found' })
     }
-    res.json(subject.toJSON())
+    res.json(subject)
   } catch (err) {
     if (err?.name === 'CastError') {
       return res.status(404).json({ error: 'Subject not found' })
