@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { Field } from '../models/Field.js'
-import { requireAdmin } from '../lib/auth.js'
+import { requireAdmin, requireReviewerOrAdmin } from '../lib/auth.js'
 
 const router = Router()
 
@@ -22,7 +22,8 @@ function toKey(label) {
 }
 
 // GET /api/fields — the rating fields shown on the employee form.
-router.get('/', async (_req, res, next) => {
+// Read by both signed-in reviewers (the form) and admins (dashboard views).
+router.get('/', requireReviewerOrAdmin, async (_req, res, next) => {
   try {
     const fields = await Field.find().sort({ createdAt: 1 }).lean()
     res.json({ fields: fields.map((f) => ({ key: f.key, label: f.label })) })

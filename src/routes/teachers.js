@@ -2,27 +2,49 @@ import { Router } from 'express'
 import { Teacher } from '../models/Teacher.js'
 import { Field } from '../models/Field.js'
 import { Session } from '../models/Session.js'
-import { aggregateTeacherRatings } from '../lib/ratings.js'
-import { requireAdmin } from '../lib/auth.js'
+import { perTeacherFieldStages, foldTeacherRatings } from '../lib/ratings.js'
+import { requireAdmin, requireReviewerOrAdmin } from '../lib/auth.js'
 
 const router = Router()
 
 // Full list with aggregated ratings — admin dashboard/teachers view.
 async function listWithRatings(_req, res, next) {
   try {
-    const [teachers, fields, sessions] = await Promise.all([
+    const [teachers, fields] = await Promise.all([
       Teacher.find().sort({ name: 1 }).lean({ virtuals: true }),
       Field.find().lean(),
-      Session.find().lean(),
     ])
-
     const fieldKeys = fields.map((f) => f.key)
-    const result = teachers.map((teacher) => ({
-      id: String(teacher._id),
-      name: teacher.name,
-      removed: Boolean(teacher.removed),
-      ...aggregateTeacherRatings(teacher, sessions, fieldKeys),
-    }))
+
+    // Averages come back as a small row per teacher; sessions counted alongside.
+    const [{ perField, counts }] = await Session.aggregate([
+      {
+        $facet: {
+          perField: perTeacherFieldStages(fieldKeys),
+          counts: [{ $group: { _id: '$teacherName', sessions: { $sum: 1 } } }],
+        },
+      },
+    ])
+    const ratingsByName = new Map(perField.map((r) => [r._id, foldTeacherRatings(r.fields, fieldKeys)]))
+    const sessionsByName = new Map(counts.map((c) => [c._id, c.sessions]))
+
+    const result = teachers.map((teacher) => {
+      const sessions = sessionsByName.get(teacher.name) ?? 0
+      // A teacher with no sessions reports null ratings (not an empty object),
+      // matching the previous aggregation contract the dashboard relies on.
+      const { ratings, overall } =
+        sessions === 0
+          ? { ratings: null, overall: 0 }
+          : (ratingsByName.get(teacher.name) ?? { ratings: {}, overall: 0 })
+      return {
+        id: String(teacher._id),
+        name: teacher.name,
+        removed: Boolean(teacher.removed),
+        sessions,
+        ratings,
+        overall,
+      }
+    })
     res.json({ teachers: result })
   } catch (err) {
     next(err)
@@ -30,17 +52,19 @@ async function listWithRatings(_req, res, next) {
 }
 
 // GET /api/teachers
-//  - ?activeOnly=true  -> public: just active teacher names (for the review form)
+//  - ?activeOnly=true  -> reviewer or admin: just active teacher names (for the review form)
 //  - otherwise         -> admin-only: full list with aggregated ratings
 router.get('/', (req, res, next) => {
   if (req.query.activeOnly === 'true') {
-    return Teacher.find({ removed: { $ne: true } })
-      .sort({ name: 1 })
-      .lean()
-      .then((teachers) =>
-        res.json({ teachers: teachers.map((t) => ({ id: String(t._id), name: t.name })) }),
-      )
-      .catch(next)
+    return requireReviewerOrAdmin(req, res, () =>
+      Teacher.find({ removed: { $ne: true } })
+        .sort({ name: 1 })
+        .lean()
+        .then((teachers) =>
+          res.json({ teachers: teachers.map((t) => ({ id: String(t._id), name: t.name })) }),
+        )
+        .catch(next),
+    )
   }
   // Sensitive ratings — require an admin token.
   return requireAdmin(req, res, () => listWithRatings(req, res, next))
@@ -64,7 +88,7 @@ router.post('/', requireAdmin, async (req, res, next) => {
     }
 
     const teacher = await Teacher.create({ name })
-    res.status(201).json(teacher.toJSON())
+    res.status(201).json(teacher)
   } catch (err) {
     // Unique index race -> duplicate
     if (err?.code === 11000) {
@@ -86,7 +110,7 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
     if (!teacher) {
       return res.status(404).json({ error: 'Teacher not found' })
     }
-    res.json(teacher.toJSON())
+    res.json(teacher)
   } catch (err) {
     // Invalid ObjectId -> treat as not found
     if (err?.name === 'CastError') {
