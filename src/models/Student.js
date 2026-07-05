@@ -12,6 +12,11 @@ const studentSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
+// Backs the admin directory's newest-first, paginated listing. Compound with _id
+// so the `{ createdAt: -1, _id: -1 }` sort streams from the index (stable tiebreak
+// for same-timestamp docs) instead of a blocking in-memory sort.
+studentSchema.index({ createdAt: -1, _id: -1 })
+
 studentSchema.set('toJSON', {
   virtuals: true,
   versionKey: false,
