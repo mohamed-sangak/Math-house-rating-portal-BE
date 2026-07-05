@@ -4,6 +4,12 @@ import { requireAdmin, requireReviewerOrAdmin } from '../lib/auth.js'
 
 const router = Router()
 
+// Keys the session submit payload already uses at its top level. A rating field
+// whose derived key matches one of these would collide when the reviewer form
+// spreads the ratings into the body, silently overwriting the real value (e.g. a
+// field named "Subject" -> key "subject" overwrites the session's subject).
+const RESERVED_KEYS = new Set(['teacherName', 'subject', 'students', 'sessionDate', 'sessionTime'])
+
 // Turn a human label into a stable camelCase key, e.g. "Homework feedback" -> "homeworkFeedback".
 function toKey(label) {
   const words = label
@@ -43,6 +49,9 @@ router.post('/', requireAdmin, async (req, res, next) => {
     const key = toKey(label)
     if (!key) {
       return res.status(400).json({ error: 'Field name must contain letters or numbers' })
+    }
+    if (RESERVED_KEYS.has(key)) {
+      return res.status(400).json({ error: 'That field name is reserved — please choose a different one' })
     }
 
     const exists = await Field.findOne({

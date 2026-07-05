@@ -3,6 +3,7 @@ import cors from 'cors'
 
 import teachersRouter from './routes/teachers.js'
 import sessionsRouter from './routes/sessions.js'
+import studentsRouter from './routes/students.js'
 import fieldsRouter from './routes/fields.js'
 import subjectsRouter from './routes/subjects.js'
 import statsRouter from './routes/stats.js'
@@ -30,6 +31,7 @@ export function createApp() {
   // Feature routers. Add more here as the API grows.
   app.use('/api/teachers', teachersRouter)
   app.use('/api/sessions', sessionsRouter)
+  app.use('/api/students', studentsRouter)
   app.use('/api/fields', fieldsRouter)
   app.use('/api/subjects', subjectsRouter)
   app.use('/api/stats', statsRouter)

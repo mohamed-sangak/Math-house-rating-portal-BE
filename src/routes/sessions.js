@@ -2,8 +2,10 @@ import { Router } from 'express'
 import { Session } from '../models/Session.js'
 import { Teacher } from '../models/Teacher.js'
 import { Field } from '../models/Field.js'
+import { Student } from '../models/Student.js'
 import { requireReviewer, requireAdmin } from '../lib/auth.js'
 import { combineDateTime, toDateOnly, toTimeOnly, dayStartUTC, dayEndExclusiveUTC } from '../lib/dates.js'
+import { normalizePhone } from '../lib/phone.js'
 
 const router = Router()
 
@@ -19,8 +21,10 @@ const FUTURE_GRACE_MS = 24 * 60 * 60 * 1000
 
 const round1 = (n) => Math.round(n * 10) / 10
 
-// Validate + normalize the submitted students array. Returns { students } on
-// success or { error } describing the first problem found.
+// Validate + normalize the submitted students. Each entry must carry a valid,
+// distinct phone; name/category are carried through untrimmed-of-meaning and
+// only enforced later for phones that don't already exist (see resolveStudents).
+// Returns { students: [{ phone, name, category }] } or { error }.
 function parseStudents(raw) {
   if (!Array.isArray(raw) || raw.length === 0) {
     return { error: 'Add at least one student.' }
@@ -29,18 +33,77 @@ function parseStudents(raw) {
     return { error: `A session can list at most ${MAX_STUDENTS} students.` }
   }
   const students = []
+  const seenPhones = new Set()
   for (const entry of raw) {
-    const name = typeof entry?.name === 'string' ? entry.name.trim() : ''
-    const category = entry?.category
-    if (!name || name.length > MAX_NAME_LENGTH || !NAME_RE.test(name)) {
-      return { error: 'Student names can contain letters and spaces only.' }
+    const phone = normalizePhone(entry?.phone)
+    if (!phone) {
+      return { error: 'Each student needs a valid phone number (7–15 digits).' }
     }
-    if (!VALID_CATEGORIES.includes(category)) {
-      return { error: 'Each student needs a valid category.' }
+    if (seenPhones.has(phone)) {
+      return { error: 'Each student in a session needs a distinct phone number.' }
     }
-    students.push({ name, category })
+    seenPhones.add(phone)
+    students.push({
+      phone,
+      name: typeof entry?.name === 'string' ? entry.name.trim() : '',
+      category: entry?.category,
+    })
   }
   return { students }
+}
+
+// Given the parsed students, create any whose phone is new (validating their
+// name/category) and leave existing records untouched. Returns { phones } — the
+// session's student list, in submission order — or { error }.
+async function resolveStudents(parsed) {
+  const phones = parsed.map((s) => s.phone)
+  const found = await Student.find({ phone: { $in: phones } }, { phone: 1 }).lean()
+  const existing = new Set(found.map((s) => s.phone))
+
+  const toCreate = []
+  for (const s of parsed) {
+    if (existing.has(s.phone)) continue // known student — source of truth stays as-is
+    if (!s.name || s.name.length > MAX_NAME_LENGTH || !NAME_RE.test(s.name)) {
+      return { error: 'New student names can contain letters and spaces only.' }
+    }
+    if (!VALID_CATEGORIES.includes(s.category)) {
+      return { error: 'Each new student needs a valid category.' }
+    }
+    toCreate.push({ phone: s.phone, name: s.name, category: s.category })
+  }
+
+  if (toCreate.length > 0) {
+    try {
+      // ordered:false so every new student is inserted independently.
+      await Student.insertMany(toCreate, { ordered: false })
+    } catch (err) {
+      // A concurrent submission can create the same new phone first; the unique
+      // index then rejects our duplicate (code 11000). The record exists now and
+      // the session will reference it, so that's fine — re-throw anything else.
+      const writeErrors = err?.writeErrors ?? []
+      const onlyDuplicates =
+        err?.code === 11000 && writeErrors.every((e) => (e.code ?? e.err?.code) === 11000)
+      if (!onlyDuplicates) throw err
+    }
+  }
+  return { phones }
+}
+
+// Resolve a session's stored phone list into display details from the Student
+// collection, preserving order. A phone with no record (e.g. deleted student)
+// falls back to the phone itself so the session still renders.
+async function resolveStudentDetails(phones) {
+  if (phones.length === 0) return []
+  const students = await Student.find({ phone: { $in: phones } }).lean()
+  const byPhone = new Map(students.map((s) => [s.phone, s]))
+  return phones.map((phone) => {
+    const student = byPhone.get(phone)
+    return {
+      name: student?.name ?? 'Unknown student',
+      category: student?.category ?? null,
+      phone,
+    }
+  })
 }
 
 // Validate the submitted scores against the current rating fields. Every field
@@ -141,7 +204,7 @@ router.get('/:id', requireAdmin, async (req, res, next) => {
       subject: s.subject,
       sessionDate: toDateOnly(s.sessionAt),
       sessionTime: toTimeOnly(s.sessionAt),
-      students: s.students ?? [],
+      students: await resolveStudentDetails(s.students ?? []),
       ratings: s.ratings ?? {},
       overall: sessionOverall(s.ratings),
       createdAt: s.createdAt,
@@ -197,12 +260,19 @@ router.post('/', requireReviewer, async (req, res, next) => {
       return res.status(400).json({ error: ratingsError })
     }
 
+    // Create any new students (validating their details); existing phones keep
+    // their current record. The session then stores just the phone references.
+    const { phones, error: resolveError } = await resolveStudents(students)
+    if (resolveError) {
+      return res.status(400).json({ error: resolveError })
+    }
+
     const session = await Session.create({
       teacherName,
       reviewerName: req.reviewer.name, // from the authenticated token, not the client
       sessionAt,
       subject,
-      students,
+      students: phones,
       ratings,
     })
 
