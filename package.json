@@ -8,12 +8,13 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "start": "node --env-file-if-exists=.env server.js",
+    "start": "node --env-file=.env server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9.0.3",
