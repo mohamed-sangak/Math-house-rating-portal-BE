@@ -6,6 +6,7 @@ import { Student } from '../models/Student.js'
 import { requireReviewer, requireAdmin } from '../lib/auth.js'
 import { combineDateTime, toDateOnly, toTimeOnly, dayStartUTC, dayEndExclusiveUTC } from '../lib/dates.js'
 import { normalizePhone } from '../lib/phone.js'
+import { freeTrialPhones } from '../lib/students.js'
 
 const router = Router()
 
@@ -152,6 +153,11 @@ router.get('/', requireAdmin, async (req, res, next) => {
       }
     }
     if (teacher) query.teacherName = teacher
+
+    // Restrict to sessions with at least one currently free-trial student.
+    if (req.query.freeTrial === 'true') {
+      query.students = { $in: await freeTrialPhones() }
+    }
 
     // Clamp paging params to sane bounds.
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100)

@@ -5,6 +5,7 @@ import { Session } from '../models/Session.js'
 import { requireAdmin } from '../lib/auth.js'
 import { dayStartUTC, dayEndExclusiveUTC } from '../lib/dates.js'
 import { round1, perTeacherFieldStages, foldTeacherRatings } from '../lib/ratings.js'
+import { freeTrialPhones } from '../lib/students.js'
 
 const router = Router()
 
@@ -74,8 +75,14 @@ router.get('/range', async (req, res, next) => {
     const [teachers, fields] = await Promise.all([Teacher.find().lean(), Field.find().lean()])
     const fieldKeys = fields.map((f) => f.key)
 
+    // Optional: restrict to sessions with at least one currently free-trial student.
+    const match = { sessionAt: { $gte: rangeStart, $lt: rangeEnd } }
+    if (req.query.freeTrial === 'true') {
+      match.students = { $in: await freeTrialPhones() }
+    }
+
     const [{ perField, counts, total }] = await Session.aggregate([
-      { $match: { sessionAt: { $gte: rangeStart, $lt: rangeEnd } } }, // uses the sessionAt index
+      { $match: match }, // uses the sessionAt index (+ students multikey index when filtering)
       {
         $facet: {
           perField: perTeacherFieldStages(fieldKeys),
