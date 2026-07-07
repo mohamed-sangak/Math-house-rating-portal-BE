@@ -96,4 +96,32 @@ router.get('/directory', requireAdmin, async (req, res, next) => {
   }
 })
 
+// PATCH /api/students/:id — admin updates a student. The only supported change is
+// the one-way category upgrade free_trial -> subscribed; downgrades are rejected
+// (a subscribed student never goes back to a free trial).
+router.patch('/:id', requireAdmin, async (req, res, next) => {
+  try {
+    if (req.body?.category !== 'subscribed') {
+      return res.status(400).json({ error: 'Students can only be marked as subscribed.' })
+    }
+
+    const student = await Student.findById(req.params.id)
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found.' })
+    }
+
+    if (student.category !== 'subscribed') {
+      student.category = 'subscribed'
+      await student.save()
+    }
+
+    res.json({ id: String(student._id), name: student.name, phone: student.phone, category: student.category })
+  } catch (err) {
+    if (err?.name === 'CastError') {
+      return res.status(404).json({ error: 'Student not found.' })
+    }
+    next(err)
+  }
+})
+
 export default router
